@@ -55,39 +55,42 @@ class MouseControl:
 
         while True:
             success, img = cap.read()
+            try:
+                img = hd.get_hands(img, draw=draw_features)
+                lmList = hd.get_hand_positions(img, handNo=0)
+                if len(lmList) != 0:
+                    fingers_up = hd.get_fingers_up(lmList)  # Get the fingers that are straightened out
+                    is_fist = hd.check_if_fist(lmList)  # Making a fist deactivates mouse control
+                    if not is_fist:
+                        xWrist, yWrist = lmList[0][1], lmList[0][2]  # Used in conjunction with middle to right-click
+                        xThumb, yThumb = lmList[4][1], lmList[4][2]  # Used in conjunction with index to left-click
+                        xIndex, yIndex = lmList[8][1], lmList[8][2]  # Used with thumb for left-click measurements
+                        xMiddle, yMiddle = lmList[12][1], lmList[12][2]  # Used for right-click measurements
+                        xIndexMCP, yIndexMCP = lmList[5][1], lmList[5][2]  # Used for scrolling measurements
+                        xRingMCP, yRingMCP = lmList[13][1], lmList[13][2]  # Point that the mouse will reference
 
-            img = hd.get_hands(img, draw=draw_features)
-            lmList = hd.get_hand_positions(img, handNo=0)
-            if len(lmList) != 0:
-                fingers_up = hd.get_fingers_up(lmList)  # Get the fingers that are straightened out
-                is_fist = hd.check_if_fist(lmList)  # Making a fist deactivates mouse control
-                if not is_fist:
-                    xWrist, yWrist = lmList[0][1], lmList[0][2]  # Used in conjunction with middle to right-click
-                    xThumb, yThumb = lmList[4][1], lmList[4][2]  # Used in conjunction with index to left-click
-                    xIndex, yIndex = lmList[8][1], lmList[8][2]  # Used with thumb for left-click measurements
-                    xMiddle, yMiddle = lmList[12][1], lmList[12][2]  # Used for right-click measurements
-                    xIndexMCP, yIndexMCP = lmList[5][1], lmList[5][2]  # Used for scrolling measurements
-                    xRingMCP, yRingMCP = lmList[13][1], lmList[13][2]  # Point that the mouse will reference
+                        # Formulas for adjusting the position of the mouse based on cam and frame dimensions
+                        xAdjust = (self.xCenter - xRingMCP) / self.xFrameRatio
+                        yAdjust = (self.yCenter - yRingMCP) / self.yFrameRatio
+                        # The X axis measures right-to-left so we adjust it here
+                        xMouse = self.wScreen - ((xRingMCP-xAdjust) * self.xProportion)
+                        yMouse = (yRingMCP-yAdjust) * self.yProportion
 
-                    # Formulas for adjusting the position of the mouse based on cam and frame dimensions
-                    xAdjust = (self.xCenter - xRingMCP) / self.xFrameRatio
-                    yAdjust = (self.yCenter - yRingMCP) / self.yFrameRatio
-                    # The X axis measures right-to-left so we adjust it here
-                    xMouse = self.wScreen - ((xRingMCP-xAdjust) * self.xProportion)
-                    yMouse = (yRingMCP-yAdjust) * self.yProportion
-                    print(fingers_up)
-                    if [8] == fingers_up:  # Using only index finger, point up or down to scroll in that direction
-                        self.__scroll_page(yIndex, yIndexMCP)
-                    elif [8, 12] == fingers_up:  # Move with two fingers less and right to decrease/increase volume
-                        self.__adjust_volume(xMouse)
-                    else:
-                        self.__check_click("right", abs(xWrist - xMiddle), abs(yWrist - yMiddle))
-                        self.__check_click("left", abs(xThumb - xIndex), abs(yThumb - yIndex))
-                        mouse.move(xMouse, yMouse)
+                        if [8] == fingers_up:  # Using only index finger, point up or down to scroll in that direction
+                            self.__scroll_page(yIndex, yIndexMCP)
+                        elif [8, 12] == fingers_up:  # Move with two fingers less and right to decrease/increase volume
+                            self.__adjust_volume(xMouse)
+                        else:
+                            self.__check_click("right", abs(xWrist - xMiddle), abs(yWrist - yMiddle))
+                            self.__check_click("left", abs(xThumb - xIndex), abs(yThumb - yIndex))
+                            mouse.move(xMouse, yMouse)
 
-            if display_cam:
-                cv2.imshow("Live", img)
-            cv2.waitKey(1)
+                if display_cam:
+                    cv2.imshow("Live", img)
+                cv2.waitKey(1)
+            except Exception as Ex:
+                print("MouseControl ERROR: " + str(Ex))
+                continue
 
     def __check_click(self, click_type, xDistance, yDistance):
         click_ratio = self.RClickDistance if click_type == "right" else self.LClickDistance
@@ -99,6 +102,8 @@ class MouseControl:
             time.sleep(0.2)  # This is optional, however having a pause upon release lets the action reset properly
 
     def __adjust_volume(self, xMouse):
+        if not (self.volCon.minVolume and self.volCon.maxVolume):
+            raise Exception("Cannot use volume adjustment due to unassigned min and max volumes.")
         db = int((self.wScreen - xMouse) / self.volCon.volumeProportion)
         if db <= 0:
             self.volCon.change_volume(db)
