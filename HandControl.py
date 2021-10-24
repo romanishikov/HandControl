@@ -4,9 +4,13 @@ import mouse
 import platform
 import BodyTracking as BT
 
+from ctypes import cast, POINTER
+from comtypes import CLSCTX_ALL
+from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+
 
 class MouseControl:
-    def __init__(self, screen_width, screen_height, cam_width=640, cam_height=480, frame_pad=100):
+    def __init__(self, screen_width, screen_height, cam_width=640, cam_height=480, frame_pad=150):
         # Specify the dimension of the camera and computer screen. Recommended to be the same as one another.
         # NOTE: CAM DIMENSIONS SHOULD NOT BE MORE THAN MONITOR DIMENSIONS
         self.wCam = cam_width
@@ -39,8 +43,10 @@ class MouseControl:
         # * * * Divider values can be adjusted to what works best on the monitor * * *
         self.fistThreshold = int(self.hCam / 4.5)
         self.fingerThreshold = int(self.hCam / 2.7)
+        # Initialize volume control object
+        self.volCon = VolumeControl(screen_width)
 
-    def run(self, camera_index=0):
+    def run(self, camera_index=0, display_cam=True, draw_features=True):
         cap = cv2.VideoCapture(camera_index)
         cap.set(3, self.wCam)
         cap.set(4, self.hCam)
@@ -50,7 +56,7 @@ class MouseControl:
         while True:
             success, img = cap.read()
 
-            img = hd.get_hands(img, draw=True)
+            img = hd.get_hands(img, draw=draw_features)
             lmList = hd.get_hand_positions(img, handNo=0)
             if len(lmList) != 0:
                 fingers_up = hd.get_fingers_up(lmList)  # Get the fingers that are straightened out
@@ -69,16 +75,18 @@ class MouseControl:
                     # The X axis measures right-to-left so we adjust it here
                     xMouse = self.wScreen - ((xRingMCP-xAdjust) * self.xProportion)
                     yMouse = (yRingMCP-yAdjust) * self.yProportion
-
+                    print(fingers_up)
                     if [8] == fingers_up:  # Using only index finger, point up or down to scroll in that direction
                         self.__scroll_page(yIndex, yIndexMCP)
+                    elif [8, 12] == fingers_up:  # Move with two fingers less and right to decrease/increase volume
+                        self.__adjust_volume(xMouse)
                     else:
                         self.__check_click("right", abs(xWrist - xMiddle), abs(yWrist - yMiddle))
                         self.__check_click("left", abs(xThumb - xIndex), abs(yThumb - yIndex))
+                        mouse.move(xMouse, yMouse)
 
-                    mouse.move(xMouse, yMouse)
-
-            cv2.imshow("Live", img)
+            if display_cam:
+                cv2.imshow("Live", img)
             cv2.waitKey(1)
 
     def __check_click(self, click_type, xDistance, yDistance):
@@ -90,6 +98,11 @@ class MouseControl:
             mouse.release(click_type)
             time.sleep(0.2)  # This is optional, however having a pause upon release lets the action reset properly
 
+    def __adjust_volume(self, xMouse):
+        db = int((self.wScreen - xMouse) / self.volCon.volumeProportion)
+        if db <= 0:
+            self.volCon.change_volume(db)
+
     @staticmethod
     def __scroll_page(index_pos, index_mcp_pos):
         diff = abs(index_pos - index_mcp_pos) if abs(index_pos - index_mcp_pos) <= 200 else 200
@@ -99,3 +112,18 @@ class MouseControl:
         elif index_pos < index_mcp_pos:
             mouse.wheel(scroll_rate)
 
+
+class VolumeControl:
+    def __init__(self, screen_width):
+        self.minVolume = None
+        self.maxVolume = None
+        if platform.system() == 'Windows':
+            self.interface = AudioUtilities.GetSpeakers().Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+            self.volume = cast(self.interface, POINTER(IAudioEndpointVolume))
+            self.minVolume = self.volume.GetVolumeRange()[0]
+            self.maxVolume = self.volume.GetVolumeRange()[1]
+
+            self.volumeProportion = screen_width / self.minVolume
+
+    def change_volume(self, db):
+        self.volume.SetMasterVolumeLevel(db, None)  # 0 = 100%; 76 = 0%
