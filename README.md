@@ -6,6 +6,7 @@ Functions included:
 * Highlighting text
 * Move files and windows
 * Scrolling up and down
+* Volume control
 
 # USAGE
 <strong>* * * Must have webcam in order for CV to register hand * * * </strong><br><br>
@@ -19,7 +20,10 @@ In order to simulate a mouse left-click, simply pinch the index finger and thumb
 To simulate a right-click the user will push their middle finger downwards towards the wrist as the hand is upright. When the middle fingers returns to position the right-click will be executed. As with the left-click, the right-click function can be held down until the finger is returned to the original upright position.<br><br>
 
 <strong>SCROLLING</strong><br>
-To scroll the window up or down the index finger will be the only finger left up while the others are closed (a pointing gesture). The direction that the finger is pointing towards is the direction the page will scroll in. The starting position of the scroll is parallel to the ground (in this case the camera), and the more it is angled up or down, the more the scroll velocity will increase in that direction (pointing straight up is 100% velocity scrolling up while straight down is 100% downward).<br>
+To scroll the window up or down the index finger will be the only finger left up while the others are closed (a pointing gesture). The direction that the finger is pointing towards is the direction the page will scroll in. The starting position of the scroll is parallel to the ground (in this case the camera), and the more it is angled up or down, the more the scroll velocity will increase in that direction (pointing straight up is 100% velocity scrolling up while straight down is 100% downward).<br><br>
+ 
+<strong>VOLUME ADJUSTMENT</strong><br>
+Volume adjustment is triggered by raising the index and middle finger and closing all other fingers into the palm. While the hand is kept upright (palm forward), move fingers left to decrease volume and right to increase it.
   
 <h2>Stopping Mouse Control</h2>
 In order to stop the hand from controlling the mouse, the user may create a fist (all fingers into the palm) to cease control.  
